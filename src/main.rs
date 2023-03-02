@@ -19,10 +19,33 @@ fn main() {
     let prog = Program::parse();
     match prog.command {
         Command::Status => {
-            cmd::status();
+            match cmd::status() {
+                Ok(status) => {
+                    print_status(status);
+                }
+                Err(err) => {
+                    println!("An error occured: {}", err);
+                }
+            }
         }
         Command::Commit => {
             cmd::commit();
+        }
+    }
+}
+
+/// Print contents of a `cmd::Status` struct
+fn print_status(status: cmd::Status) {
+    if !status.staged.is_empty() {
+        println!("\n--- Staged Items ---\n");
+        for entry in &status.staged {
+            println!("{}", entry);
+        }
+    }
+    if !status.unstaged.is_empty() {
+        println!("\n--- Unstaged Items ---\n");
+        for entry in &status.unstaged {
+            println!("{}", entry);
         }
     }
 }
