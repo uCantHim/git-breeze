@@ -9,6 +9,7 @@ use std::process::Command;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum StatusTag {
+    Added,
     Modified,
     Deleted,
     Untracked,
@@ -17,9 +18,10 @@ pub enum StatusTag {
 impl std::fmt::Display for StatusTag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
+            StatusTag::Added     => "+",
             StatusTag::Modified  => "~",
             StatusTag::Deleted   => "-",
-            StatusTag::Untracked => "+",
+            StatusTag::Untracked => "?",
         })
     }
 }
@@ -84,6 +86,7 @@ pub fn status() -> Result<Status, io::Error> {
 /// ```
 fn parse_status_tag(tag: &str) -> Result<StatusTag, io::Error> {
     match tag {
+        "A"  => Ok(StatusTag::Added),
         "M"  => Ok(StatusTag::Modified),
         "D"  => Ok(StatusTag::Deleted),
         "??" => Ok(StatusTag::Untracked),
