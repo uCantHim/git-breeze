@@ -25,6 +25,7 @@ fn main() {
                 }
                 Err(err) => {
                     println!("An error occured: {}", err);
+                    std::process::exit(1);
                 }
             }
         }

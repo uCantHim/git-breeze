@@ -57,6 +57,8 @@ impl Status {
     }
 }
 
+/// Runs the `git status` command and parses the output into a `Status`
+/// structure.
 pub fn status() -> Result<Status, io::Error> {
     let output = Command::new("git")
                          .arg("status")
@@ -64,8 +66,17 @@ pub fn status() -> Result<Status, io::Error> {
                          .output();
 
     output
-        .and_then(|output| String::from_utf8(output.stdout)
-                  .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err.to_string())))
+        .and_then(|output| {
+            if !output.status.success() {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("`git status` failed with error: {}",
+                            String::from_utf8(output.stderr).unwrap())
+                ));
+            }
+            String::from_utf8(output.stdout)
+                .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err.to_string()))
+        })
         .and_then(|string| parse_status(&string))
         .and_then(|mut status| {
             status.staged.sort();
