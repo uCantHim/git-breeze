@@ -29,7 +29,7 @@ fn main() {
             }
         }
         Command::Commit => {
-            cmd::commit();
+
         }
     }
 }

@@ -131,7 +131,3 @@ fn parse_status(output: &str) -> Result<Status, io::Error> {
 
     return Ok(result);
 }
-
-pub fn commit() {
-    println!("Called git commit!");
-}
