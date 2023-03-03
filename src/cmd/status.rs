@@ -6,6 +6,7 @@
 use std::io;
 use std::path::PathBuf;
 use std::process::Command;
+use colored::*;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum StatusTag {
@@ -48,6 +49,23 @@ impl StatusTag {
             _   => None,
         }
     }
+
+    /// Get the color associated with the status
+    pub fn to_color(&self) -> Color {
+        match self {
+            StatusTag::Unmodified      => Color::White,
+            StatusTag::Modified        => Color::Green,
+            StatusTag::FileTypeChanged => Color::Yellow,
+            StatusTag::Added           => Color::Yellow,
+            StatusTag::Deleted         => Color::Red,
+            StatusTag::Renamed         => Color::BrightBlue,
+            StatusTag::Copied          => Color::BrightBlue,
+            StatusTag::UpdatedUnmerged => Color::BrightBlue,
+
+            StatusTag::Untracked       => Color::BrightCyan,
+            StatusTag::Ignored         => Color::BrightCyan,
+        }
+    }
 }
 
 impl std::fmt::Display for StatusTag {
@@ -72,16 +90,6 @@ impl std::fmt::Display for StatusTag {
 pub struct StatusEntry {
     pub status: StatusTag,
     pub path: PathBuf,
-}
-
-impl std::fmt::Display for StatusEntry {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f, "{} {}",
-            self.status,
-            self.path.to_str().expect("Path must be valid unicode")
-        )
-    }
 }
 
 /// A data structure for `git status`'s output

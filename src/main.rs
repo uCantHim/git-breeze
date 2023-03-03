@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use colored::*;
 
 pub mod cmd;
 
@@ -63,7 +64,18 @@ fn exit(output: std::io::Result<std::process::Output>) {
 
 /// Print contents of a `cmd::Status` struct
 fn print_status(status: cmd::Status) {
-    let print = |entry, i| println!(" [{}]   {}", i, entry);
+    let print = |entry: &cmd::StatusEntry, i: u32| {
+        let color = entry.status.to_color();
+        let row_color = match i % 2 == 0 {
+            true  => Color::White,
+            false => Color::TrueColor{ r: 140, g: 140, b: 140 }
+        };
+        println!(
+            " {}   {} {}",
+            entry.status.to_string().color(color),
+            format!("[{}]", i).color(row_color),
+            entry.path.to_str().unwrap().color(color))
+    };
 
     let mut i = 0;
     if !status.staged.is_empty() {
@@ -87,4 +99,6 @@ fn print_status(status: cmd::Status) {
             i += 1;
         }
     }
+
+    println!("");
 }
