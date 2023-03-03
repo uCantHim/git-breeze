@@ -4,7 +4,6 @@
 //! output into a `Status` structure.
 
 use std::io;
-use std::path::PathBuf;
 use std::process::Command;
 use colored::*;
 
@@ -86,10 +85,31 @@ impl std::fmt::Display for StatusTag {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+/// Does not derive from Ord because its ordering should not depend on its
+/// status tag.
 pub struct StatusEntry {
     pub status: StatusTag,
-    pub path: PathBuf,
+    pub path: String,
+}
+
+impl PartialEq for StatusEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+    }
+}
+
+impl Eq for StatusEntry {}
+
+impl PartialOrd for StatusEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.path.partial_cmp(&other.path)
+    }
+}
+
+impl Ord for StatusEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.path.cmp(&other.path)
+    }
 }
 
 /// A data structure for `git status`'s output
@@ -196,7 +216,7 @@ fn parse_status_line(line: &str) -> (Option<StatusEntry>, Option<StatusEntry>) {
     let make_entry = |tag: StatusTag| -> StatusEntry {
         StatusEntry{
             status: tag,
-            path: PathBuf::from(path_str.trim())
+            path: String::from(path_str.trim())
         }
     };
     let is_modified = |tag: &StatusTag| tag != &StatusTag::Unmodified;

@@ -74,7 +74,7 @@ fn print_status(status: cmd::Status) {
             " {}   {} {}",
             entry.status.to_string().color(color),
             format!("[{}]", i).color(row_color),
-            entry.path.to_str().unwrap().color(color))
+            entry.path.color(color))
     };
 
     let mut i = 0;
