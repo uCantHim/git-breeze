@@ -9,34 +9,76 @@ use std::process::Command;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum StatusTag {
-    Added,
+    Unmodified,
     Modified,
+    FileTypeChanged,
+    Added,
     Deleted,
+    Renamed,
+    Copied,
+    UpdatedUnmerged,
+
     Untracked,
+    Ignored,
+}
+
+impl StatusTag {
+    /// Parse an entry type from a `git status` tag character
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let tag = 'M';
+    /// let tag_type = parse_status_tag(tag);
+    ///
+    /// assert_eq!(tag_type, StatusTag::Modified);
+    /// ```
+    fn from(tag: char) -> Option<StatusTag> {
+        match tag {
+            ' ' => Some(StatusTag::Unmodified),
+            'M' => Some(StatusTag::Modified),
+            'T' => Some(StatusTag::FileTypeChanged),
+            'A' => Some(StatusTag::Added),
+            'D' => Some(StatusTag::Deleted),
+            'R' => Some(StatusTag::Renamed),
+            'C' => Some(StatusTag::Copied),
+            'U' => Some(StatusTag::UpdatedUnmerged),
+            '?' => Some(StatusTag::Untracked),
+            '!' => Some(StatusTag::Ignored),
+            _   => None,
+        }
+    }
 }
 
 impl std::fmt::Display for StatusTag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
-            StatusTag::Added     => "+",
-            StatusTag::Modified  => "~",
-            StatusTag::Deleted   => "-",
-            StatusTag::Untracked => "?",
+            StatusTag::Unmodified      => " ",
+            StatusTag::Modified        => "~",
+            StatusTag::FileTypeChanged => "~",
+            StatusTag::Added           => "+",
+            StatusTag::Deleted         => "-",
+            StatusTag::Renamed         => "~",
+            StatusTag::Copied          => "~",
+            StatusTag::UpdatedUnmerged => "~",
+
+            StatusTag::Untracked       => "?",
+            StatusTag::Ignored         => "!",
         })
     }
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct StatusEntry {
-    tag: StatusTag,
-    path: PathBuf,
+    pub status: StatusTag,
+    pub path: PathBuf,
 }
 
 impl std::fmt::Display for StatusEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
-            f, " [{}] {}",
-            self.tag,
+            f, "{} {}",
+            self.status,
             self.path.to_str().expect("Path must be valid unicode")
         )
     }
@@ -44,21 +86,67 @@ impl std::fmt::Display for StatusEntry {
 
 /// A data structure for `git status`'s output
 ///
-/// Holds `StatusEntry` structs that can be either staged or unstaged.
+/// Holds two sorted lists of `StatusEntry` structs; one for staged items and
+/// one for unstaged changes.
 #[derive(Default)]
 pub struct Status {
     pub staged: Vec<StatusEntry>,
     pub unstaged: Vec<StatusEntry>,
+    pub untracked: Vec<StatusEntry>,
 }
 
+/// Defines a few helpers to deal with the collection of entries as a whole
+/// instead of the split into staged, unstaged, and untracked entries.
 impl Status {
     fn new() -> Self {
         Default::default()
+    }
+
+    /// Retrieve an item at a unique index.
+    ///
+    /// The index is counted across staged, unstaged, and untracked items, in
+    /// the priority order `staged -> unstaged -> untracked`. This assigns a
+    /// unique index to each single entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let status = parse_status("M  foo\n M bar").unwrap();
+    ///
+    /// assert_eq!(status.get(0).unwrap().path, PathBuf::from("foo"));
+    /// assert_eq!(status.get(1).unwrap().path, PathBuf::from("bar"));
+    /// assert_eq!(status.get(2), None);
+    /// ```
+    pub fn get(&self, index: usize) -> Option<&StatusEntry> {
+        self.staged.iter().chain(&self.unstaged).chain(&self.untracked).nth(index)
+    }
+
+    /// Iterate over all entries (with no regards to their type) in sequence
+    pub fn iter(&self) -> impl Iterator<Item = &StatusEntry> {
+        self.staged.iter().chain(&self.unstaged).chain(&self.untracked)
     }
 }
 
 /// Runs the `git status` command and parses the output into a `Status`
 /// structure.
+///
+/// Returns an error if the command fails or if the function is unable to parse
+/// its output.
+///
+/// # Examples
+///
+/// ```
+/// match status() {
+///     Ok(status) {
+///         for entry in &status.unstaged {
+///             // ...
+///         }
+///     }
+///     Err(err) {
+///         // ...
+///     }
+/// }
+/// ```
 pub fn status() -> Result<Status, io::Error> {
     let output = Command::new("git")
                          .arg("status")
@@ -85,51 +173,30 @@ pub fn status() -> Result<Status, io::Error> {
         })
 }
 
-/// Parse an entry type from a `git status` tag string
-///
-/// # Examples
-///
-/// ```
-/// let tag = "M";
-/// let tag_type = parse_status_tag(tag);
-///
-/// assert_eq!(tag_type, StatusTag::Modified);
-/// ```
-fn parse_status_tag(tag: &str) -> Result<StatusTag, io::Error> {
-    match tag {
-        "A"  => Ok(StatusTag::Added),
-        "M"  => Ok(StatusTag::Modified),
-        "D"  => Ok(StatusTag::Deleted),
-        "??" => Ok(StatusTag::Untracked),
-        _    => Err(io::Error::new(io::ErrorKind::InvalidData,
-                                   format!("Unknown `git status` tag \"{}\"", tag)))
-    }
-}
-
 /// Parse a UTF-8 text as a `git status` line.
 ///
 /// On success, returns the entry and a flag that indicates whether the entry
 /// is staged (true) or unstaged (false).
-fn parse_status_line(line: &str) -> Result<(StatusEntry, bool), io::Error> {
-    let split: Vec<&str> = line.trim().splitn(2, ' ').collect();
-    if split.len() != 2 {
-        return Err(io::Error::new(io::ErrorKind::InvalidData,
-                                  "String is not a valid `git status` line."));
-    }
+///
+/// # Panics
+///
+/// May panic if the line is not in a valid `git status --porcelain` format.
+fn parse_status_line(line: &str) -> (Option<StatusEntry>, Option<StatusEntry>) {
+    let (tag_str, path_str) = line.split_at(2);
 
-    let tag = split.get(0).expect("git status line must have a tag");
-    let file = split.get(1).expect("git status line must have a file name");
-    parse_status_tag(tag)
-        .and_then(|tag| {
-            let staged = !line.starts_with(' ') && tag != StatusTag::Untracked;
-            Ok((
-                StatusEntry{
-                    tag,
-                    path: PathBuf::from(file.trim())
-                },
-                staged
-            ))
-        })
+    // Create an entry object from a tag
+    let make_entry = |tag: StatusTag| -> StatusEntry {
+        StatusEntry{
+            status: tag,
+            path: PathBuf::from(path_str.trim())
+        }
+    };
+    let is_modified = |tag: &StatusTag| tag != &StatusTag::Unmodified;
+
+    return (
+        tag_str.chars().nth(0).and_then(StatusTag::from).filter(is_modified).map(make_entry),
+        tag_str.chars().nth(1).and_then(StatusTag::from).filter(is_modified).map(make_entry),
+    );
 }
 
 /// Parse the output of `git status` into a `Status` struct.
@@ -137,9 +204,21 @@ fn parse_status(output: &str) -> Result<Status, io::Error> {
     let mut result: Status = Status::new();
     for line in output.split("\n").filter(|l| !l.is_empty()) {
         match parse_status_line(line) {
-            Ok((entry, true))  => result.staged.push(entry),
-            Ok((entry, false)) => result.unstaged.push(entry),
-            Err(err)           => return Err(err)
+            (Some(staged), None)           => result.staged.push(staged),
+            (None,         Some(unstaged)) => result.unstaged.push(unstaged),
+            (Some(staged), Some(unstaged)) => {
+                if staged.status != StatusTag::Untracked {
+                    result.staged.push(staged);
+                    result.unstaged.push(unstaged);
+                }
+                else {
+                    result.untracked.push(staged);
+                }
+            }
+            (None, None) => return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Encountered malformed status line: {}", line)
+            ))
         }
     }
 
