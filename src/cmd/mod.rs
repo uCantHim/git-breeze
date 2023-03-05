@@ -15,7 +15,8 @@ pub fn replace_number_args(args: Vec<String>, status: &Status) -> io::Result<Vec
                     result.push(path);
                 },
                 None => {
-                    return Err(io::Error::new(io::ErrorKind::InvalidInput, ""));
+                    return Err(io::Error::new(io::ErrorKind::InvalidInput,
+                                              format!("No status entry with number {} exists.", i)));
                 }
             }
             _ => result.push(arg),
