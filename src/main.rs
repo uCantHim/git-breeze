@@ -16,7 +16,13 @@ enum Command {
     Commit {
         #[arg(last=true)]
         git_args: Vec<String>,
-    }
+    },
+    Add {
+        files: Vec<String>,
+
+        #[arg(last=true)]
+        git_args: Vec<String>,
+    },
 }
 
 fn main() {
@@ -27,10 +33,7 @@ fn main() {
                 Ok(status) => {
                     print_status(status);
                 }
-                Err(err) => {
-                    println!("An error occured: {}", err);
-                    std::process::exit(1);
-                }
+                Err(err) => exit_with_error(err),
             }
         }
         Command::Commit{ git_args } => {
@@ -44,7 +47,25 @@ fn main() {
                 Err(err) => Err(err)
             });
         }
+        Command::Add{ files, git_args } => {
+            match cmd::status().and_then(|status| cmd::replace_number_args(files, &status)) {
+                Ok(args) => {
+                    let output = std::process::Command::new("git")
+                        .arg("add")
+                        .args(args)
+                        .args(git_args)
+                        .output();
+                    exit(output);
+                },
+                Err(err) => exit_with_error(err),
+            }
+        }
     }
+}
+
+fn exit_with_error<E: std::fmt::Display>(err: E) {
+    println!("An error occured: {}", err);
+    std::process::exit(1);
 }
 
 fn exit(output: std::io::Result<std::process::Output>) {
