@@ -230,7 +230,7 @@ fn parse_status_line(line: &str) -> (Option<StatusEntry>, Option<StatusEntry>) {
 /// Parse the output of `git status` into a `Status` struct.
 fn parse_status(output: &str) -> Result<Status, io::Error> {
     let mut result: Status = Status::new();
-    for line in output.split("\n").filter(|l| !l.is_empty()) {
+    for line in output.lines().filter(|l| !l.is_empty()) {
         match parse_status_line(line) {
             (Some(staged), None)           => result.staged.push(staged),
             (None,         Some(unstaged)) => result.unstaged.push(unstaged),

@@ -34,6 +34,25 @@ enum Command {
 
         #[arg(last=true)]
         git_args: Vec<String>,
+    },
+    Checkout {
+        files: Vec<String>,
+
+        #[arg(last=true)]
+        git_args: Vec<String>,
+    },
+    Stash {
+        files: Vec<String>,
+
+        #[arg(last=true)]
+        git_args: Vec<String>,
+    },
+    Branch {
+        #[arg(help="Provide a name to create a new branch")]
+        name: Option<String>,
+
+        #[arg(last=true)]
+        git_args: Vec<String>,
     }
 }
 
@@ -75,10 +94,25 @@ fn main() {
             replace_then_run("add", files, git_args);
         }
         Command::Diff { files, git_args } => {
-            replace_then_run("add", files, git_args);
+            replace_then_run("diff", files, git_args);
         }
         Command::Reset { files, git_args } => {
             replace_then_run("reset", files, git_args);
+        }
+        Command::Checkout { files, git_args } => {
+            replace_then_run("checkout", files, git_args);
+        }
+        Command::Stash { files, git_args } => {
+            replace_then_run("stash", files, git_args);
+        }
+        Command::Branch { name: Some(name), git_args } => {
+            run_git("branch", &vec![name], &git_args);
+        }
+        Command::Branch { name: None, git_args: _ } => {
+            match cmd::branch() {
+                Ok(branch) => print_branch(branch),
+                Err(err)   => exit_with_error(err),
+            }
         }
     }
 }
@@ -92,7 +126,7 @@ pub fn run_git(git_cmd: &str, args: &Vec<String>, git_args: &Vec<String>) {
 
     exit(match output {
         Ok(child) => child.wait_with_output(),
-        Err(err) => Err(err)
+        Err(err)  => Err(err)
     });
 }
 
@@ -155,4 +189,24 @@ fn print_status(status: cmd::Status) {
     }
 
     println!("");
+}
+
+/// Print contents of a `cmd::Branch` struct
+fn print_branch(info: cmd::Branch) {
+    let it = info.branches.iter().zip(info.commits.iter()).enumerate();
+    for (i, (branch, _)) in it {
+        let prefix       = if i == info.current { " * " } else { "   " };
+        let branch_color = if i == info.current { Color::Magenta } else { Color::Green };
+        let row_color = match i % 2 == 0 {
+            true  => Color::White,
+            false => Color::TrueColor{ r: 140, g: 140, b: 140 }
+        };
+
+        println!(
+            "{}  [{}] {}",
+            prefix,
+            format!("{}", i).color(row_color),
+            branch.color(branch_color)
+        );
+    }
 }
