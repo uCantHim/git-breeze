@@ -20,28 +20,34 @@ impl std::fmt::Display for cmd::Status {
 
         let mut i = 0;
         if !self.staged.is_empty() {
-            writeln!(f, "\n--- Staged Items ---\n")?;
+            if i > 0 { writeln!(f, "")?; }
+            writeln!(f, "--- Staged Items ---\n")?;
             for entry in &self.staged {
                 print(f, entry, i)?;
                 i += 1;
             }
         }
         if !self.unstaged.is_empty() {
-            writeln!(f, "\n--- Unstaged Items ---\n")?;
+            if i > 0 { writeln!(f, "")?; }
+            writeln!(f, "--- Modified Items ---\n")?;
             for entry in &self.unstaged {
                 print(f, entry, i)?;
                 i += 1;
             }
         }
         if !self.untracked.is_empty() {
-            writeln!(f, "\n--- Untracked Items ---\n")?;
+            if i > 0 { writeln!(f, "")?; }
+            writeln!(f, "--- Untracked Items ---\n")?;
             for entry in &self.untracked {
                 print(f, entry, i)?;
                 i += 1;
             }
         }
 
-        writeln!(f, "")
+        if i == 0 {
+            write!(f, "Working tree clean.")?;
+        }
+        Ok(())
     }
 }
 
