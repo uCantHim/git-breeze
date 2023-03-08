@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use colored::*;
 
 pub mod cmd;
 
@@ -75,7 +74,7 @@ fn main() {
     match prog.command {
         Command::Status => {
             match cmd::status() {
-                Ok(status) => print_status(status),
+                Ok(status) => println!("{}", status),
                 Err(err) => exit_with_error(err),
             }
         }
@@ -110,7 +109,7 @@ fn main() {
         }
         Command::Branch { name: None, git_args: _ } => {
             match cmd::branch() {
-                Ok(branch) => print_branch(branch),
+                Ok(branch) => println!("{}", branch),
                 Err(err)   => exit_with_error(err),
             }
         }
@@ -148,65 +147,4 @@ fn exit(output: std::io::Result<std::process::Output>) {
             std::process::exit(1);
         },
     };
-}
-
-/// Print contents of a `cmd::Status` struct
-fn print_status(status: cmd::Status) {
-    let print = |entry: &cmd::StatusEntry, i: u32| {
-        let color = entry.status.to_color();
-        let row_color = match i % 2 == 0 {
-            true  => Color::White,
-            false => Color::TrueColor{ r: 140, g: 140, b: 140 }
-        };
-        println!(
-            " {}   {} {}",
-            entry.status.to_string().color(color),
-            format!("[{}]", i).color(row_color),
-            entry.path.color(color))
-    };
-
-    let mut i = 0;
-    if !status.staged.is_empty() {
-        println!("\n--- Staged Items ---\n");
-        for entry in &status.staged {
-            print(entry, i);
-            i += 1;
-        }
-    }
-    if !status.unstaged.is_empty() {
-        println!("\n--- Unstaged Items ---\n");
-        for entry in &status.unstaged {
-            print(entry, i);
-            i += 1;
-        }
-    }
-    if !status.untracked.is_empty() {
-        println!("\n--- Untracked Items ---\n");
-        for entry in &status.untracked {
-            print(entry, i);
-            i += 1;
-        }
-    }
-
-    println!("");
-}
-
-/// Print contents of a `cmd::Branch` struct
-fn print_branch(info: cmd::Branch) {
-    let it = info.branches.iter().zip(info.commits.iter()).enumerate();
-    for (i, (branch, _)) in it {
-        let prefix       = if i == info.current { " * " } else { "   " };
-        let branch_color = if i == info.current { Color::Magenta } else { Color::Green };
-        let row_color = match i % 2 == 0 {
-            true  => Color::White,
-            false => Color::TrueColor{ r: 140, g: 140, b: 140 }
-        };
-
-        println!(
-            "{}  [{}] {}",
-            prefix,
-            format!("{}", i).color(row_color),
-            branch.color(branch_color)
-        );
-    }
 }

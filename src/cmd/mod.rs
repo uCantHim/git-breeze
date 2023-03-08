@@ -1,5 +1,6 @@
 mod status;
 mod branch;
+mod display;
 
 pub use status::status;
 pub use status::Status;
@@ -7,6 +8,8 @@ pub use status::StatusEntry;
 
 pub use branch::branch;
 pub use branch::Branch;
+
+pub use display::*;
 
 use std::io;
 
