@@ -13,6 +13,8 @@ pub use display::*;
 
 use std::io;
 
+/// May fail (return an Err-result) if a number with no corresponding entry
+/// in the status is encountered, or a number range is invalid.
 pub fn replace_number_args(args: Vec<String>, status: &Status) -> io::Result<Vec<String>> {
     let mut result: Vec<String> = Vec::new();
 
