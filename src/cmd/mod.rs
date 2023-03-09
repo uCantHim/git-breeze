@@ -12,6 +12,7 @@ pub use branch::Branch;
 pub use display::*;
 
 use std::io;
+use std::path::PathBuf;
 
 /// May fail (return an Err-result) if a number with no corresponding entry
 /// in the status is encountered, or a number range is invalid.
@@ -58,4 +59,22 @@ pub fn replace_number_args(args: Vec<String>, status: &Status) -> io::Result<Vec
     }
 
     Ok(result)
+}
+
+fn get_git_root() -> io::Result<PathBuf> {
+    std::process::Command::new("git")
+        .arg("rev-parse")
+        .arg("--show-toplevel")
+        .output()
+        .map(|output| String::from_utf8(output.stdout).expect(""))
+        .map(|string| PathBuf::from(string.trim()))
+}
+
+pub fn make_relative_to_git_root(mut files: Vec<String>) -> io::Result<Vec<String>> {
+    let git_root = get_git_root()?;
+    for file in &mut files {
+        *file = git_root.join(&file).to_str().unwrap().to_string();
+    }
+
+    Ok(files)
 }

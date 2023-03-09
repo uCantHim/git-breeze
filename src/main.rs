@@ -164,7 +164,9 @@ fn replace_then_run(git_cmd: &str, args: Vec<String>, mut git_args: Vec<String>)
 
     // Replace number arguments with entries from `git status`, then run
     // the git command.
-    match cmd::status().and_then(|status| cmd::replace_number_args(args, &status))
+    match cmd::status()
+        .and_then(|status| cmd::replace_number_args(args, &status))
+        .and_then(|files| cmd::make_relative_to_git_root(files))
     {
         Ok(args) => run_git(git_cmd, &git_args, &args),
         Err(err) => exit_with_error(err),
