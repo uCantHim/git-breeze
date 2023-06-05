@@ -108,7 +108,9 @@ fn main() {
 fn checkout(files: Vec<String>, git_args: Vec<String>) {
     match files[..] {
         [] => {
-            let args = cmd::status().and_then(|status| cmd::replace_number_args(git_args, &status));
+            let args = cmd::status()
+                       .and_then(|status| cmd::replace_number_args(git_args, &status))
+                       .and_then(cmd::make_relative_to_git_root);
             match args {
                 Ok(args) => run_git("checkout", &args, &Vec::new()),
                 Err(err) => exit_with_error(err),
