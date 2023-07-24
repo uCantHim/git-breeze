@@ -89,9 +89,11 @@ fn main() {
         Command::Stash { files, git_args } => {
             replace_then_run("stash", files, git_args);
         }
+        // Call `git branch` with arguments
         Command::Branch { name: Some(name), git_args } => {
             run_git("branch", &vec![name], &git_args);
         }
+        // `git branch` without any arguments - just print output
         Command::Branch { name: None, git_args: _ } => {
             match cmd::branch() {
                 Ok(branch) => println!("{}", branch),
@@ -119,14 +121,20 @@ fn checkout(files: Vec<String>, git_args: Vec<String>) {
         // If only a single argument is provided, try to treat it as a
         // branch name
         [ref single] => {
-            let replaced = single.parse::<usize>().ok()
-                .and_then(|num| {
-                    let branch = cmd::branch().ok()?;
-                    branch.branches.get(num).map(|b| b.clone())
-                });
-            match replaced {
-                Some(branch) => run_git("checkout", &git_args, &vec![branch]),
-                None => replace_then_run("checkout", files, git_args),
+            let branch_name = match single.parse::<usize>() {
+                Ok(num) => {
+                    cmd::branch()
+                        .ok()
+                        .and_then(|branches| branches.branches.get(num).map(|s| s.clone()))
+                },
+                Err(_) => Some(single.clone()),
+            };
+
+            match branch_name {
+                // The single argument is a branch name
+                Some(branch) => run_git("checkout", &git_args, &vec![branch.clone()]),
+                // The argument is not a branch
+                None         => replace_then_run("checkout", files, git_args),
             }
         },
         // Otherwise, treat args as file names and run default replacement
