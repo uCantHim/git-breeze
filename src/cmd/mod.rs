@@ -9,8 +9,6 @@ pub use status::StatusEntry;
 pub use branch::branch;
 pub use branch::Branch;
 
-pub use display::*;
-
 use std::io;
 use std::path::PathBuf;
 
